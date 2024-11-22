@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Update and install necessary packages
-sudo apt update
+sudo apt update -y
 sudo apt install -y git python3 python3-pip python3-virtualenv apache2 libapache2-mod-php mariadb-server redis-server
 
 # Clone the MISP repository if not already cloned

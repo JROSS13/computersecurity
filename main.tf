@@ -21,6 +21,29 @@ resource "azurerm_subnet" "subnet" {
   address_prefixes     = ["10.0.1.0/24"]
 }
 
+
+# Create public IPs
+resource "azurerm_public_ip" "wazuh_nic" {
+  name                = "wazuhPublicIP"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Dynamic"
+}
+
+resource "azurerm_public_ip" "misp_nic" {
+  name                = "mispPublicIP"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Dynamic"
+}
+
+resource "azurerm_public_ip" "server_nic" {
+  name                = "wazuhAgentPublicIP"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Dynamic"
+}
+
 # resource "azurerm_subnet" "subnet" {
 #   name                 = "wazuh-misp-subnet"
 #   resource_group_name  = azurerm_resource_group.rg.name
@@ -85,12 +108,15 @@ resource "azurerm_network_security_group" "nsg" {
   }
 }
 
+
+
 resource "azurerm_network_security_group" "internal" {
   name                = "internal_vms"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+
 }
-# Network Interfaces for VMs
+# Network interface for Wazuh nic
 resource "azurerm_network_interface" "wazuh_nic" {
   name                = "wazuh-nic"
   location            = azurerm_resource_group.rg.location
@@ -100,6 +126,7 @@ resource "azurerm_network_interface" "wazuh_nic" {
     name                          = "wazuh-ip-config"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.wazuh_nic.id
   }
 }
 
@@ -112,6 +139,7 @@ resource "azurerm_network_interface" "misp_nic" {
     name                          = "misp-ip-config"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.misp_nic.id
   }
 }
 
@@ -124,6 +152,7 @@ resource "azurerm_network_interface" "server_nic" {
     name                          = "misp-ip-config"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.server_nic.id
   }
 }
 
@@ -196,14 +225,14 @@ resource "azurerm_linux_virtual_machine" "misp_vm" {
   name                = "misp-vm"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  size                = "Standard_B1ms"
+  size                = "Standard_DS1_v2"
   admin_username      = "azureuser"
   network_interface_ids = [azurerm_network_interface.misp_nic.id]
   disable_password_authentication = true
 
-  admin_ssh_key {
+   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa.pub")
+    public_key = azapi_resource_action.ssh_public_key_gen.output.publicKey
   }
   custom_data = base64encode(file("scripts/install_misp.sh"))
 
@@ -225,14 +254,14 @@ resource "azurerm_linux_virtual_machine" "wazuh_server" {
   name                = "wazuh-server"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  size                = "Standard_B1ms"
+  size                = "Standard_DS1_v2"
   admin_username      = "azureuser" 
   network_interface_ids = [azurerm_network_interface.server_nic.id]
   disable_password_authentication = true
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa.pub")
+    public_key = azapi_resource_action.ssh_public_key_gen.output.publicKey
   }
   
     custom_data = base64encode(file("scripts/install_wazuh_agent.sh"))
@@ -267,14 +296,14 @@ resource "azurerm_linux_virtual_machine" "wazuh_linux_vm" {
     name                = "wazuh-linux-vm"
     resource_group_name = azurerm_resource_group.rg.name
     location            = azurerm_resource_group.rg.location
-    size                = "Standard_B1ms"
+    size                = "Standard_DS1_v2"
     admin_username      = "azureuser"
     network_interface_ids = [azurerm_network_interface.wazuh_nic.id]
     disable_password_authentication = true
 
-  admin_ssh_key {
+   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa.pub")
+    public_key = azapi_resource_action.ssh_public_key_gen.output.publicKey
   }
 
     custom_data = base64encode(file("scripts/install_wazuh_agent.sh"))

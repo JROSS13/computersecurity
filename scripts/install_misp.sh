@@ -10,6 +10,6 @@ sudo apt install -y git
 
 # Clone git MISP
 git clone git@github.com:MISP/misp-docker.git
-cp temnplate.env .env
-docker compose pull
-docker compuose up
+sudo cp template.env .env
+sudo docker compose pull
+sudo docker compuose up
