@@ -627,6 +627,8 @@ resource "azurerm_windows_virtual_machine" "wazuh_windows_agent_vm" {
   size                = "Standard_B1s"
   network_interface_ids = [azurerm_network_interface.windows_nic.id]
 
+  custom_data = base64encode(file("scripts/allow_winrm.ps1"))
+
   os_disk {
     name                 = "myOsDisk"
     caching              = "ReadWrite"
@@ -641,31 +643,10 @@ resource "azurerm_windows_virtual_machine" "wazuh_windows_agent_vm" {
   }
 }
   
-  resource "azurerm_virtual_machine_extension" "web_server_install" {
-  name                       = "wazuh-windows-agent-vm"
-  virtual_machine_id         = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.id
-  publisher                  = "Microsoft.Compute"
-  type                       = "CustomScriptExtension"
-  type_handler_version       = "1.10"
-  auto_upgrade_minor_version = true
-
-   settings = <<SETTINGS
-    {
-      "script": "./scripts/enable_winrm.ps1"
-    }
-  SETTINGS
-
-   protected_settings = <<PROTECTED_SETTINGS
-    {
-      "script": "./scripts/enable_winrm.ps1"
-    }
-  PROTECTED_SETTINGS
-}
-
 
 # Upload Wazuh agent MSI using WinRM
 resource "null_resource" "add_wazuh_agent_msi" {
-  depends_on = [azurerm_virtual_machine_extension.web_server_install]
+  depends_on = [azurerm_windows_virtual_machine.wazuh_windows_agent_vm]
 
   provisioner "file" {
     source      = "scripts/wazuh-agent-4.9.2-1.msi"  # Path to the local MSI file
