@@ -2,9 +2,14 @@
 
 sudo apt update -y
 sudo apt install -y curl gnupg
-curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -
-echo "deb https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee -a /etc/apt/sources.list.d/wazuh.list
-sudo apt update -y
-sudo apt install -y wazuh-manager
-sudo systemctl enable wazuh-manager
-sudo systemctl start wazuh-manager
+curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh
+curl -sO https://packages.wazuh.com/4.9/config.yml
+# have to add ips to config file before next step
+bash wazuh-install.sh --generate-config-files
+curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh
+bash wazuh-install.sh --wazuh-indexer node-1
+bash wazuh-install.sh --start-cluster
+tar -axf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt -O | grep -P "\'admin\'" -A 1
+bash wazuh-install.sh --wazuh-server wazuh-1
+bash wazuh-install.sh --wazuh-dashboard dashboard
+sudo tar -axf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt -O | grep -P "\'admin\'" -A 1 >> required.txt
