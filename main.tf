@@ -231,7 +231,7 @@ locals {
   current_user_id = coalesce(var.msi_id, data.azurerm_client_config.current.object_id)
 }
 
-# Key Vault to store API keys securely
+#Key Vault to store API keys securely
 # resource "azurerm_key_vault" "vault" {
 #   name                       = "wazuhmisp-kv"
 #   location                   = azurerm_resource_group.rg.location
@@ -608,7 +608,7 @@ resource "null_resource" remoteExecProvisionerWFolder4 {
 }
 
 data "template_file" "windows_wazuh_agent" {
-  template = file("scripts/windows_agent_install.ps1")
+  template = file("scripts/wazuh_windows_agent/windows_agent_install.ps1")
 
   vars = {
     wazuh_server_linux_ip = azurerm_linux_virtual_machine.wazuh_server.private_ip_address
@@ -649,8 +649,8 @@ resource "null_resource" "add_wazuh_agent_msi" {
   depends_on = [azurerm_windows_virtual_machine.wazuh_windows_agent_vm]
 
   provisioner "file" {
-    source      = "scripts/wazuh-agent-4.9.2-1.msi"  # Path to the local MSI file
-    destination = "C:\\Windows\\Temp\\wazuh-agent-4.9.2-1.msi"
+    source      = "scripts/wazuh_windows_agents"  # Path to the local MSI file
+    destination = "C:\\Windows\\Temp\\"
 
     connection {
       type     = "winrm"
@@ -662,55 +662,64 @@ resource "null_resource" "add_wazuh_agent_msi" {
       insecure = true   # Ignore SSL certificate validation (use carefully in production)
     }
   }
-
-  provisioner "remote-exec" {
-    inline = [
-      "Start-Process -FilePath 'msiexec.exe' -ArgumentList '/i C:\\Windows\\Temp\\wazuh-agent-4.9.2-1.msi ADDRESS=${wazuh_server_linux_ip} /quiet /norestart' -NoNewWindow -Wait",
-      "Set-Content -Path 'C:\\Program Files (x86)\\ossec-agent\\ossec.conf' -Value '<ossec>'",
-      "Add-Content -Path 'C:\\Program Files (x86)\\ossec-agent\\ossec.conf' -Value '  <server>${wazuh_server_linux_ip}</server>'",
-      "Add-Content -Path 'C:\\Program Files (x86)\\ossec-agent\\ossec.conf' -Value '</ossec>'",
-      "Start-Service -Name ossec",
-      "Set-Service -Name ossec -StartupType Automatic"
-    ]
+    provisioner "remote-exec" {
+        inline = [
+          # Extract the Sysmon.zip file using PowerShell
+          "cd C:\\Windows\\Temp\\wazuh_windows_agent",
+          "./windows_agent_install.ps1"
+        ]
+        connection {
+              type        = "winrm"
+              user        = "azureuser"
+              password    = random_password.password.result  # Path to your SSH private key
+              host        = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
+              port        = 5985                               # Default WinRM HTTPS port
+              https       = false                               # Enable HTTPS for WinRM
+              insecure    = true                               # Ignore SSL certificate validation
+        }
+      } 
+}
+resource "null_resource" "add_sysmon" {
+  provisioner "file" {
+    source      = "scripts/sysmon.zip"  # Path to the local MSI file
+    destination = "C:\\Windows\\Temp\\"
 
     connection {
       type     = "winrm"
       user     = "azureuser"
-      password = random_password.password.result
-      host     = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address
-      port     = 5985
-      https    = false
-      insecure = true
+      password = random_password.password.result  # User password for WinRM
+      host     = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
+      port     = 5985  # Default WinRM HTTP port
+      https    = false  # Use HTTP instead of HTTPS
+      insecure = true   # Ignore SSL certificate validation (use carefully in production)
     }
   }
+    #Provisioner to extract the ZIP and install Sysmon
+    provisioner "remote-exec" {
+        inline = [
+          # Extract the Sysmon.zip file using PowerShell
+          "powershell -Command 'Expand-Archive -Path C:\\Windows\\Temp\\sysmon.zip -DestinationPath C:\\Windows\\Temp\\sysmon'",
 
+          # Run sysmon.exe with the desired configuration (e.g., sysmon -accepteula -c sysmonconfig.xml)
+          "C:\\Windows\\Temp\\sysmon\\sysmon.exe -accepteula -c C:\\Windows\\Temp\\sysmon\\sysmonconfig.xml",
 
-   #Provisioner to extract the ZIP and install Sysmon
-provisioner "remote-exec" {
-    inline = [
-      # Extract the Sysmon.zip file using PowerShell
-      "powershell -Command 'Expand-Archive -Path C:\\Windows\\Temp\\sysmon.zip -DestinationPath C:\\Windows\\Temp\\sysmon'",
+          # Optional: Move the extracted files to a more permanent location
+          "move C:\\Windows\\Temp\\sysmon C:\\Program Files\\Sysmon",
 
-      # Run sysmon.exe with the desired configuration (e.g., sysmon -accepteula -c sysmonconfig.xml)
-      "C:\\Windows\\Temp\\sysmon\\sysmon.exe -accepteula -c C:\\Windows\\Temp\\sysmon\\sysmonconfig.xml",
-
-      # Optional: Move the extracted files to a more permanent location
-      "move C:\\Windows\\Temp\\sysmon C:\\Program Files\\Sysmon",
-
-      # Clean up the temporary ZIP file
-      "Remove-Item C:\\Windows\\Temp\\sysmon.zip"
-    ]
-    connection {
-          type        = "winrm"
-          user     = "azureuser"
-          password    = random_password.password.result  # Path to your SSH private key
-          host        = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
-          port        = 5985                               # Default WinRM HTTPS port
-          https       = false                               # Enable HTTPS for WinRM
-          insecure    = true                               # Ignore SSL certificate validation
-    }
-  } 
-}
+          # Clean up the temporary ZIP file
+          "Remove-Item C:\\Windows\\Temp\\sysmon.zip"
+        ]
+        connection {
+              type        = "winrm"
+              user        = "azureuser"
+              password    = random_password.password.result  # Path to your SSH private key
+              host        = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
+              port        = 5985                               # Default WinRM HTTPS port
+              https       = false                               # Enable HTTPS for WinRM
+              insecure    = true                               # Ignore SSL certificate validation
+        }
+      } 
+  }
   
 resource "random_password" "password" {
   length      = 20
