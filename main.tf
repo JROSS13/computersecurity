@@ -10,7 +10,6 @@ resource "azurerm_network_security_group" "nsg" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
-   
 
   security_rule {
     name                       = "SSH"
@@ -83,18 +82,6 @@ resource "azurerm_network_security_group" "nsg" {
     source_address_prefix      = "*"  # Restrict to specific IP or range
     destination_address_prefix = "*"
   }
-
-   security_rule {
-    name                       = "Allow-WinRM-HTTP"
-    priority                   = 1006
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "5985"
-    source_address_prefix      = "*"  # Restrict to specific IP or range
-    destination_address_prefix = "*"
-  }
 }
 
 
@@ -145,16 +132,6 @@ resource "azurerm_public_ip" "server_nic" {
   allocation_method   = "Dynamic"
 }
 
-# Create Azure Firewall
-
-
-
-# resource "azurerm_network_security_group" "internal" {
-#   name                = "internal_vms"
-#   location            = azurerm_resource_group.rg.location
-#   resource_group_name = azurerm_resource_group.rg.name
-
-# }
 # Network interface for Wazuh nic
 resource "azurerm_network_interface" "wazuh_nic" {
   name                = "wazuh-nic"
@@ -231,56 +208,6 @@ locals {
   current_user_id = coalesce(var.msi_id, data.azurerm_client_config.current.object_id)
 }
 
-#Key Vault to store API keys securely
-# resource "azurerm_key_vault" "vault" {
-#   name                       = "wazuhmisp-kv"
-#   location                   = azurerm_resource_group.rg.location
-#   resource_group_name        = azurerm_resource_group.rg.name
-#   tenant_id                  = data.azurerm_client_config.current.tenant_id
-#   sku_name                   = "standard"
-#   soft_delete_retention_days = 7
-
-#   access_policy {
-#     tenant_id = data.azurerm_client_config.current.tenant_id
-#     object_id = local.current_user_id
-
-#     key_permissions    = var.key_permissions
-#     secret_permissions = var.secret_permissions
-#   }
-# }
-
-# resource "random_string" "azurerm_key_vault_key_name" {
-#   length  = 13
-#   lower   = true
-#   numeric = false
-#   special = false
-#   upper   = false
-# }
-# resource "azurerm_key_vault_key" "key" {
-#   name = coalesce(var.key_name, "key-${random_string.azurerm_key_vault_key_name.result}")
-
-#   key_vault_id = azurerm_key_vault.vault.id
-#   key_type     = var.key_type
-#   key_size     = var.key_size
-#   key_opts     = var.key_ops
-
-#   rotation_policy {
-#     automatic {
-#       time_before_expiry = "P30D"
-#     }
-
-#     expire_after         = "P90D"
-#     notify_before_expiry = "P29D"
-#   }
-# }
-
-# # Key Vault secret to store the MISP API key
-# resource "azurerm_key_vault_secret" "misp_api_key" {
-#   name         = "misp-api-key"
-#   value        = var.misp_api_key 
-#   key_vault_id = azurerm_key_vault.vault.id
-# }
-
 # Ubuntu VM for MISP with Containerized MISP Setup
 resource "azurerm_linux_virtual_machine" "misp_vm" {
   name                = "misp-vm"
@@ -340,9 +267,7 @@ resource "azurerm_linux_virtual_machine" "wazuh_server" {
         offer     = "0001-com-ubuntu-server-jammy"
         sku       = "22_04-lts"  # For Ubuntu 22.04, adjust if Ubuntu 24 is available
         version   = "latest"
-
     }
-
 }
 
 output "wazuh_server_linux_ip" {
@@ -356,7 +281,6 @@ data "template_file" "wazuh_config" {
     wazuh_server_linux_ip = azurerm_linux_virtual_machine.wazuh_server.private_ip_address
   }
 }
-
 
 resource "null_resource" remoteExecProvisionerWFolder {
     depends_on = [ azurerm_linux_virtual_machine.wazuh_server]
@@ -433,7 +357,7 @@ resource "null_resource" remoteExecProvisionerWFolder1 {
       "sudo systemctl restart wazuh-manager"
 
       # Restart the Wazuh manager to apply the new decoder
-    ]
+      ]
     connection {
         type        = "ssh"
         user        = "azureuser"  # SSH username
@@ -493,7 +417,7 @@ resource "null_resource" remoteExecProvisionerWFolder3 {
       user        = "azureuser"  # SSH username
       private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
       host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
-    }
+     }
     }
 
        # Restart Wazuh to apply the changes
@@ -511,11 +435,11 @@ resource "null_resource" remoteExecProvisionerWFolder3 {
        #Append the integration block right before the closing </ossec_config> tag
       # "sudo sed -i 's#</ossec_config>#  <integration>\\n    <name>windows_wazuh_agent.py</name>\\n    <group>sysmon_event1,sysmon_event3,sysmon_event6,sysmon_event7,sysmon_event_15,sysmon_event_22,syscheck</group>\\n    <alert_format>json</alert_format>\\n  </integration>\\n</ossec_config>#' /var/ossec/etc/ossec.conf",
 
-      "echo '<integration>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      "echo '  <name>windows_wazuh_agent.py</name>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      "echo '  <group>sysmon_event1,sysmon_event3,sysmon_event6,sysmon_event7,sysmon_event_15,sysmon_event_22,syscheck</group>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      "echo '  <alert_format>json</alert_format>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      "echo '</integration>' | sudo tee -a /var/ossec/etc/ossec.conf",
+      # "echo '<integration>' | sudo tee -a /var/ossec/etc/ossec.conf",
+      # "echo '  <name>windows_wazuh_agent.py</name>' | sudo tee -a /var/ossec/etc/ossec.conf",
+      # "echo '  <group>sysmon_event1,sysmon_event3,sysmon_event6,sysmon_event7,sysmon_event_15,sysmon_event_22,syscheck</group>' | sudo tee -a /var/ossec/etc/ossec.conf",
+      # "echo '  <alert_format>json</alert_format>' | sudo tee -a /var/ossec/etc/ossec.conf",
+      # "echo '</integration>' | sudo tee -a /var/ossec/etc/ossec.conf",
       #Optional: Verify the update (this will show the last 20 lines of ossec.conf)
       "sudo tail -n 20 /var/ossec/etc/ossec.conf",
       # Restart Wazuh Manager
@@ -607,15 +531,6 @@ resource "null_resource" remoteExecProvisionerWFolder4 {
     }
 }
 
-data "template_file" "windows_wazuh_agent" {
-  template = file("scripts/wazuh_windows_agent/windows_agent_install.ps1")
-
-  vars = {
-    wazuh_server_linux_ip = azurerm_linux_virtual_machine.wazuh_server.private_ip_address
-  }
-}
-
-
 resource "azurerm_windows_virtual_machine" "wazuh_windows_agent_vm" {
   depends_on = [azurerm_linux_virtual_machine.wazuh_linux_vm] 
   name                = "wazuh-windows-agent-vm"
@@ -626,8 +541,6 @@ resource "azurerm_windows_virtual_machine" "wazuh_windows_agent_vm" {
   location            = azurerm_resource_group.rg.location
   size                = "Standard_B1s"
   network_interface_ids = [azurerm_network_interface.windows_nic.id]
-
-  custom_data = base64encode(file("scripts/allow_winrm.ps1"))
 
   os_disk {
     name                 = "myOsDisk"
@@ -642,85 +555,7 @@ resource "azurerm_windows_virtual_machine" "wazuh_windows_agent_vm" {
     version   = "latest"
   }
 }
-  
 
-# Upload Wazuh agent MSI using WinRM
-resource "null_resource" "add_wazuh_agent_msi" {
-  depends_on = [azurerm_windows_virtual_machine.wazuh_windows_agent_vm]
-
-  provisioner "file" {
-    source      = "scripts/wazuh_windows_agents"  # Path to the local MSI file
-    destination = "C:\\Windows\\Temp\\"
-
-    connection {
-      type     = "winrm"
-      user     = "azureuser"
-      password = random_password.password.result  # User password for WinRM
-      host     = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
-      port     = 5985  # Default WinRM HTTP port
-      https    = false  # Use HTTP instead of HTTPS
-      insecure = true   # Ignore SSL certificate validation (use carefully in production)
-    }
-  }
-    provisioner "remote-exec" {
-        inline = [
-          # Extract the Sysmon.zip file using PowerShell
-          "cd C:\\Windows\\Temp\\wazuh_windows_agent",
-          "./windows_agent_install.ps1"
-        ]
-        connection {
-              type        = "winrm"
-              user        = "azureuser"
-              password    = random_password.password.result  # Path to your SSH private key
-              host        = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
-              port        = 5985                               # Default WinRM HTTPS port
-              https       = false                               # Enable HTTPS for WinRM
-              insecure    = true                               # Ignore SSL certificate validation
-        }
-      } 
-}
-resource "null_resource" "add_sysmon" {
-  provisioner "file" {
-    source      = "scripts/sysmon.zip"  # Path to the local MSI file
-    destination = "C:\\Windows\\Temp\\"
-
-    connection {
-      type     = "winrm"
-      user     = "azureuser"
-      password = random_password.password.result  # User password for WinRM
-      host     = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
-      port     = 5985  # Default WinRM HTTP port
-      https    = false  # Use HTTP instead of HTTPS
-      insecure = true   # Ignore SSL certificate validation (use carefully in production)
-    }
-  }
-    #Provisioner to extract the ZIP and install Sysmon
-    provisioner "remote-exec" {
-        inline = [
-          # Extract the Sysmon.zip file using PowerShell
-          "powershell -Command 'Expand-Archive -Path C:\\Windows\\Temp\\sysmon.zip -DestinationPath C:\\Windows\\Temp\\sysmon'",
-
-          # Run sysmon.exe with the desired configuration (e.g., sysmon -accepteula -c sysmonconfig.xml)
-          "C:\\Windows\\Temp\\sysmon\\sysmon.exe -accepteula -c C:\\Windows\\Temp\\sysmon\\sysmonconfig.xml",
-
-          # Optional: Move the extracted files to a more permanent location
-          "move C:\\Windows\\Temp\\sysmon C:\\Program Files\\Sysmon",
-
-          # Clean up the temporary ZIP file
-          "Remove-Item C:\\Windows\\Temp\\sysmon.zip"
-        ]
-        connection {
-              type        = "winrm"
-              user        = "azureuser"
-              password    = random_password.password.result  # Path to your SSH private key
-              host        = azurerm_windows_virtual_machine.wazuh_windows_agent_vm.public_ip_address  # Public IP of the VM
-              port        = 5985                               # Default WinRM HTTPS port
-              https       = false                               # Enable HTTPS for WinRM
-              insecure    = true                               # Ignore SSL certificate validation
-        }
-      } 
-  }
-  
 resource "random_password" "password" {
   length      = 20
   min_lower   = 1

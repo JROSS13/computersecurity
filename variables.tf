@@ -1,16 +1,3 @@
-# Define input variable to store the MISP API Key securely
-# variable "misp_api_key" {
-#   description = "The MISP API key for accessing MISP"
-#   type        = string
-#   sensitive   = true  # Mark it as sensitive to avoid printing in logs and state files
-# }
-
-# variable "master_pass" {
-#   description = "The MISP API key for accessing MISP"
-#   type        = string
-#   sensitive   = true  # Mark it as sensitive to avoid printing in logs and state files
-# }
-
 variable "key_permissions" {
   type        = list(string)
   description = "List of key permissions."
