@@ -4,7 +4,7 @@ resource "azurerm_resource_group" "rg" {
   location = "East US"
 }
 
-# Network Security Group to Allow HTTP, HTTPS, and SSH
+# Network Security Group to Allow HTTP, HTTPS, SSH and RDP
 resource "azurerm_network_security_group" "nsg" {
   name                = "wazuh-misp-nsg"
   location            = azurerm_resource_group.rg.location
@@ -66,7 +66,7 @@ resource "azurerm_network_security_group" "nsg" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "443"  # HTTPS
+    destination_port_range     = "443" 
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -79,11 +79,10 @@ resource "azurerm_network_security_group" "nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "5986"
-    source_address_prefix      = "*"  # Restrict to specific IP or range
+    source_address_prefix      = "*" 
     destination_address_prefix = "*"
   }
 }
-
 
 data "azurerm_client_config" "current" {}
 
@@ -233,7 +232,7 @@ resource "azurerm_linux_virtual_machine" "misp_vm" {
     source_image_reference {
         publisher = "Canonical"
         offer     = "0001-com-ubuntu-server-jammy"
-        sku       = "22_04-lts"  # For Ubuntu 22.04, adjust if Ubuntu 24 is available
+        sku       = "22_04-lts" 
         version   = "latest"
     }
 }
@@ -254,9 +253,6 @@ resource "azurerm_linux_virtual_machine" "wazuh_server" {
     username   = "azureuser"
     public_key = file("~/.ssh/id_rsa.pub")
   }
-
-    # custom_data = base64encode(file("scripts/install_wazuh_server.sh"))
-
     os_disk {
     name = "Wazuh-Server"
     caching              = "ReadWrite"
@@ -265,7 +261,7 @@ resource "azurerm_linux_virtual_machine" "wazuh_server" {
     source_image_reference {
         publisher = "Canonical"
         offer     = "0001-com-ubuntu-server-jammy"
-        sku       = "22_04-lts"  # For Ubuntu 22.04, adjust if Ubuntu 24 is available
+        sku       = "22_04-lts"  
         version   = "latest"
     }
 }
@@ -285,14 +281,14 @@ data "template_file" "wazuh_config" {
 resource "null_resource" remoteExecProvisionerWFolder {
     depends_on = [ azurerm_linux_virtual_machine.wazuh_server]
     provisioner "file" {
-    content      = data.template_file.wazuh_config.rendered  # Path to the local decoder file
-    destination = "/tmp/config.yml"         # Destination path on the remote VM
+    content      = data.template_file.wazuh_config.rendered
+    destination = "/tmp/config.yml"
     
       connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser"
+        private_key = file("~/.ssh/id_rsa")
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address
     }  
   }
      provisioner "remote-exec" {
@@ -308,9 +304,6 @@ resource "null_resource" remoteExecProvisionerWFolder {
         "curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh",
         "sudo bash wazuh-install.sh --wazuh-indexer node-1",
         "sudo bash wazuh-install.sh --start-cluster",
-        # "sudo tar -axf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt -O | grep -P \"'admin'\"  -A 1",
-        # "sudo grep -P \"'admin'\" /tmp/wazuh-install-files/wazuh-passwords.txt -A 1 | grep 'indexer_username' | sed \"s/.*indexer_username: //'\" -e 's/[\"\"]//g' > /tmp/indexer_username.txt",
-        # "sudo grep -P \"'admin'\" /tmp/wazuh-install-files/wazuh-passwords.txt -A 1 | grep 'indexer_password' | sed \"s/.*indexer_password= //'\" -e 's/[\"\"]//g' > /tmp/indexer_password.txt",
         "sudo bash wazuh-install.sh --wazuh-server wazuh-1",
         "sudo bash wazuh-install.sh --wazuh-dashboard dashboard",
         "sudo tar -axf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt -O | grep -P \"'admin'\" -A 1 >> /tmp/required.txt"
@@ -318,17 +311,11 @@ resource "null_resource" remoteExecProvisionerWFolder {
 
       connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser"
+        private_key = file("~/.ssh/id_rsa") 
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address
     }  
   }
-
-  #  provisioner "local-exec" {
-  #   command = <<EOT
-  #     scp -i ~/.ssh/id_rsa azureuser@$(terraform output -raw server_linux_ip):/tmp/required.txt C:\Users\AirxP\Desktop\dev\dev.computersecuity_final_project\computersecurity\admin_credentials.txt
-  #   EOT
-  # } 
 }
 
 
@@ -336,14 +323,14 @@ resource "null_resource" remoteExecProvisionerWFolder1 {
     depends_on = [ null_resource.remoteExecProvisionerWFolder ]
     # Provisioner to upload the custom decoder and restart Wazuh
     provisioner "file" {
-    source      = "scripts/sysmonforlinux.xml"  # Path to the local decoder file
-    destination = "/tmp/sysmonforlinux.xml"         # Destination path on the remote VM
+    source      = "scripts/sysmonforlinux.xml" 
+    destination = "/tmp/sysmonforlinux.xml"        
 
     connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser" 
+        private_key = file("~/.ssh/id_rsa") 
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address 
       }  
     }
 
@@ -355,14 +342,12 @@ resource "null_resource" remoteExecProvisionerWFolder1 {
       # Set proper permissions for the Wazuh decoder file
       "sudo chown wazuh:wazuh /var/ossec/etc/decoders/sysmonforlinux.xml",
       "sudo systemctl restart wazuh-manager"
-
-      # Restart the Wazuh manager to apply the new decoder
       ]
     connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser" 
+        private_key = file("~/.ssh/id_rsa")
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address
     }  
   }
 }
@@ -371,17 +356,16 @@ resource "null_resource" remoteExecProvisionerWFolder2 {
     depends_on = [null_resource.remoteExecProvisionerWFolder1]
   # Upload the ossec.conf template
     provisioner "file" {
-    source = "scripts/windows_wazuh_agent.py"  # Path to the template file
-    destination = "/tmp/windows_wazuh_agent.py"  # Destination path on Wazuh Manager
+    source = "scripts/windows_wazuh_agent.py"
+    destination = "/tmp/windows_wazuh_agent.py" 
     
     connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser" 
+        private_key = file("~/.ssh/id_rsa")
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address
       }  
     }
-     # Restart Wazuh to apply the changes
     provisioner "remote-exec" {
       inline = [
       "echo 'Copying py file to working dir'",
@@ -390,7 +374,6 @@ resource "null_resource" remoteExecProvisionerWFolder2 {
       "sudo usermod -a -G root azureuser",
       "echo 'Copying file to /var/ossec/integrations...'",
       "sudo cp windows_wazuh_agent.py /var/ossec/integrations/",
-      # "sudo cp /tmp/windows_wazuh_agent.py /var/ossec/integrations/",
       "echo 'Setting permissions on file...'",
       "sudo chmod 750 /var/ossec/integrations/windows_wazuh_agent.py",
       "echo 'Changing ownership of file...'",
@@ -399,9 +382,9 @@ resource "null_resource" remoteExecProvisionerWFolder2 {
     ]
     connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser"  
+        private_key = file("~/.ssh/id_rsa")  
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address
     }  
   }
 }
@@ -409,47 +392,27 @@ resource "null_resource" remoteExecProvisionerWFolder2 {
 resource "null_resource" remoteExecProvisionerWFolder3 {
     depends_on = [null_resource.remoteExecProvisionerWFolder2]
     provisioner "file" {
-    source      = "scripts/misp.xml"  # Path to the local decoder file
-    destination = "/tmp/misp.xml"         # Destination path on the remote VM
+    source      = "scripts/misp.xml"  
+    destination = "/tmp/misp.xml"  
 
      connection {
       type        = "ssh"
-      user        = "azureuser"  # SSH username
-      private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-      host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+      user        = "azureuser"  
+      private_key = file("~/.ssh/id_rsa") 
+      host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address 
      }
     }
-
-       # Restart Wazuh to apply the changes
     provisioner "remote-exec" {
       inline = [
       "sudo cp /tmp/misp.xml /var/ossec/etc/rules/",
-      # "sudo systemctl restart wazuh-manager",
-      # Backup the existing ossec.conf
       "sudo cp /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf.bak",
-
-      # Append the integration block
-
-       # Append the integration block right before the closing </ossec_config> tag
-
-       #Append the integration block right before the closing </ossec_config> tag
-      # "sudo sed -i 's#</ossec_config>#  <integration>\\n    <name>windows_wazuh_agent.py</name>\\n    <group>sysmon_event1,sysmon_event3,sysmon_event6,sysmon_event7,sysmon_event_15,sysmon_event_22,syscheck</group>\\n    <alert_format>json</alert_format>\\n  </integration>\\n</ossec_config>#' /var/ossec/etc/ossec.conf",
-
-      # "echo '<integration>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      # "echo '  <name>windows_wazuh_agent.py</name>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      # "echo '  <group>sysmon_event1,sysmon_event3,sysmon_event6,sysmon_event7,sysmon_event_15,sysmon_event_22,syscheck</group>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      # "echo '  <alert_format>json</alert_format>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      # "echo '</integration>' | sudo tee -a /var/ossec/etc/ossec.conf",
-      #Optional: Verify the update (this will show the last 20 lines of ossec.conf)
       "sudo tail -n 20 /var/ossec/etc/ossec.conf",
-      # Restart Wazuh Manager
-      # "sudo systemctl restart wazuh-manager"
       ]
      connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address  # Public IP of the VM
+        user        = "azureuser" 
+        private_key = file("~/.ssh/id_rsa") 
+        host        = azurerm_linux_virtual_machine.wazuh_server.public_ip_address 
       }  
     }
 }
@@ -498,21 +461,21 @@ resource "azurerm_linux_virtual_machine" "wazuh_linux_vm" {
     source_image_reference {
         publisher = "Canonical"
         offer     = "0001-com-ubuntu-server-jammy"
-        sku       = "22_04-lts"  # For Ubuntu 22.04, adjust if Ubuntu 24 is available
+        sku       = "22_04-lts"
         version   = "latest"
     }
 }
 resource "null_resource" remoteExecProvisionerWFolder4 {
     depends_on = [ azurerm_linux_virtual_machine.wazuh_linux_vm]
     provisioner "file" {
-    content      = data.template_file.linux_wazuh_agent.rendered  # Path to the local decoder file
-    destination = "/tmp/install_wazuh_agent.sh"         # Destination path on the remote VM
+    content      = data.template_file.linux_wazuh_agent.rendered
+    destination = "/tmp/install_wazuh_agent.sh"   
     
       connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_linux_vm.public_ip_address  # Public IP of the VM
+        user        = "azureuser" 
+        private_key = file("~/.ssh/id_rsa") 
+        host        = azurerm_linux_virtual_machine.wazuh_linux_vm.public_ip_address 
     }  
   }
      provisioner "remote-exec" {
@@ -524,9 +487,9 @@ resource "null_resource" remoteExecProvisionerWFolder4 {
           ]
       connection {
         type        = "ssh"
-        user        = "azureuser"  # SSH username
-        private_key = file("~/.ssh/id_rsa")  # Path to your SSH private key
-        host        = azurerm_linux_virtual_machine.wazuh_linux_vm.public_ip_address  # Public IP of the VM
+        user        = "azureuser"
+        private_key = file("~/.ssh/id_rsa") 
+        host        = azurerm_linux_virtual_machine.wazuh_linux_vm.public_ip_address 
       }
     }
 }
