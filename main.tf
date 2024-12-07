@@ -499,10 +499,10 @@ resource "azurerm_windows_virtual_machine" "wazuh_windows_agent_vm" {
   name                = "wazuh-windows-agent-vm"
   computer_name         = "windowsagent01"
   admin_username      = "azureuser"
-  admin_password      = random_password.password.result
+  admin_password      = var.windows_password
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  size                = "Standard_B1s"
+  size                = "Standard_D2s_v3"
   network_interface_ids = [azurerm_network_interface.windows_nic.id]
 
   os_disk {

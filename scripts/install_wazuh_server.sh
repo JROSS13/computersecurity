@@ -4,7 +4,6 @@ sudo apt update -y
 sudo apt install -y curl gnupg
 curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh
 curl -sO https://packages.wazuh.com/4.9/config.yml
-# have to add ips to config file before next step
 bash wazuh-install.sh --generate-config-files
 curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh
 bash wazuh-install.sh --wazuh-indexer node-1
